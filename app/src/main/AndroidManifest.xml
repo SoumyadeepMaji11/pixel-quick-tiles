@@ -13,6 +13,9 @@
     <!-- Tactile vibration feedback -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Request exemption from battery optimization so tiles survive app close -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Optional permission for master accessibility switch via ADB -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
@@ -39,24 +42,33 @@
         <service
             android:name=".RingerModeTileService"
             android:exported="true"
+            android:stopWithTask="false"
             android:icon="@drawable/ic_sound_normal"
             android:label="@string/tile_ringer_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+            <!-- Request active tile mode so Android keeps tile alive -->
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
         </service>
 
         <!-- Quick Settings Tile 2: Global Vibration Toggle -->
         <service
             android:name=".VibrationTileService"
             android:exported="true"
+            android:stopWithTask="false"
             android:icon="@drawable/ic_vibration_on"
             android:label="@string/tile_vibration_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
         </service>
 
     </application>

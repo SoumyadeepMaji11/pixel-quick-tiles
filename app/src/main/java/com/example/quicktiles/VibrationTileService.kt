@@ -17,6 +17,8 @@ import android.widget.Toast
 /**
  * Quick Settings Tile tailored for Google Pixel devices.
  * Toggles the master vibration switch and individual haptics.
+ *
+ * Uses stopWithTask="false" and ACTIVE_TILE meta-data to survive app closure.
  */
 class VibrationTileService : TileService() {
 
@@ -25,46 +27,119 @@ class VibrationTileService : TileService() {
     private val settingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             super.onChange(selfChange)
-            updateTileState()
+            try {
+                updateTileState()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating tile from observer", e)
+            }
         }
+    }
+
+    override fun onTileAdded() {
+        super.onTileAdded()
+        Log.d(TAG, "Vibration tile added to Quick Settings")
+        updateTileState()
     }
 
     override fun onStartListening() {
         super.onStartListening()
-        if (!isObserverRegistered) {
-            try {
-                val resolver = contentResolver
-
-                // Pixel master switch observer
-                resolver.registerContentObserver(
-                    Settings.System.getUriFor(VibrationHelper.SETTING_VIBRATE_ON),
-                    false,
-                    settingsObserver
-                )
-
-                // Call vibration observer
-                resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.VIBRATE_WHEN_RINGING),
-                    false,
-                    settingsObserver
-                )
-
-                // Touch & gesture haptics observer
-                resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.HAPTIC_FEEDBACK_ENABLED),
-                    false,
-                    settingsObserver
-                )
-                isObserverRegistered = true
-            } catch (e: Exception) {
-                Log.e(TAG, "Error registering ContentObserver on Pixel", e)
-            }
-        }
+        registerObservers()
         updateTileState()
     }
 
     override fun onStopListening() {
         super.onStopListening()
+        unregisterObservers()
+    }
+
+    override fun onTileRemoved() {
+        super.onTileRemoved()
+        unregisterObservers()
+        Log.d(TAG, "Vibration tile removed from Quick Settings")
+    }
+
+    override fun onClick() {
+        super.onClick()
+
+        try {
+            if (!VibrationHelper.canModifySystemSettings(this)) {
+                showToast("Please allow 'Modify system settings' to toggle vibration")
+                promptWriteSettingsPermission()
+                return
+            }
+
+            val currentState = VibrationHelper.isVibrationEnabled(this)
+            val newState = !currentState
+            val success = VibrationHelper.setVibrationEnabled(this, newState)
+
+            Log.d(TAG, "onClick: was=$currentState, target=$newState, success=$success")
+
+            if (!success) {
+                showToast("Could not update vibration settings")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onClick", e)
+            showToast("Error toggling vibration")
+        }
+
+        updateTileState()
+    }
+
+    /**
+     * Updates the Quick Settings Tile appearance.
+     */
+    private fun updateTileState() {
+        val tile = qsTile ?: return
+
+        try {
+            val isEnabled = VibrationHelper.isVibrationEnabled(this)
+
+            if (isEnabled) {
+                tile.state = Tile.STATE_ACTIVE
+                tile.label = "Vibration"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    tile.subtitle = "On"
+                }
+                tile.icon = Icon.createWithResource(this, R.drawable.ic_vibration_on)
+            } else {
+                tile.state = Tile.STATE_INACTIVE
+                tile.label = "Vibration"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    tile.subtitle = "Off"
+                }
+                tile.icon = Icon.createWithResource(this, R.drawable.ic_vibration_off)
+            }
+
+            tile.updateTile()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating tile state", e)
+        }
+    }
+
+    private fun registerObservers() {
+        if (!isObserverRegistered) {
+            try {
+                val resolver = contentResolver
+                resolver.registerContentObserver(
+                    Settings.System.getUriFor(VibrationHelper.SETTING_VIBRATE_ON),
+                    false, settingsObserver
+                )
+                resolver.registerContentObserver(
+                    Settings.System.getUriFor(Settings.System.VIBRATE_WHEN_RINGING),
+                    false, settingsObserver
+                )
+                resolver.registerContentObserver(
+                    Settings.System.getUriFor(Settings.System.HAPTIC_FEEDBACK_ENABLED),
+                    false, settingsObserver
+                )
+                isObserverRegistered = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Error registering ContentObservers", e)
+            }
+        }
+    }
+
+    private fun unregisterObservers() {
         if (isObserverRegistered) {
             try {
                 contentResolver.unregisterContentObserver(settingsObserver)
@@ -75,79 +150,28 @@ class VibrationTileService : TileService() {
         }
     }
 
-    override fun onClick() {
-        super.onClick()
-
-        if (!VibrationHelper.canModifySystemSettings(this)) {
-            Toast.makeText(
-                this,
-                "Please allow 'Modify system settings' to toggle vibration",
-                Toast.LENGTH_LONG
-            ).show()
-            promptWriteSettingsPermission()
-            return
-        }
-
-        val currentState = VibrationHelper.isVibrationEnabled(this)
-        val newState = !currentState
-        val success = VibrationHelper.setVibrationEnabled(this, newState)
-
-        if (!success) {
-            Toast.makeText(
-                this,
-                "Could not update vibration settings",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        updateTileState()
-    }
-
-    /**
-     * Updates the Quick Settings Tile appearance.
-     * Styled specifically for Pixel's Material You Quick Settings pills.
-     */
-    private fun updateTileState() {
-        val tile = qsTile ?: return
-
-        val isEnabled = VibrationHelper.isVibrationEnabled(this)
-
-        if (isEnabled) {
-            tile.state = Tile.STATE_ACTIVE
-            tile.label = "Vibration"
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                tile.subtitle = "On"
-            }
-            tile.icon = Icon.createWithResource(this, R.drawable.ic_vibration_on)
-        } else {
-            tile.state = Tile.STATE_INACTIVE
-            tile.label = "Vibration"
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                tile.subtitle = "Off"
-            }
-            tile.icon = Icon.createWithResource(this, R.drawable.ic_vibration_off)
-        }
-
-        tile.updateTile()
+    private fun showToast(message: String) {
+        try {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {}
     }
 
     private fun promptWriteSettingsPermission() {
-        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-            data = Uri.parse("package:$packageName")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        try {
+            val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            openActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error opening write settings", e)
         }
-        openActivity(intent)
     }
 
-    /**
-     * Safely opens an activity from a TileService (compatible with Pixel on Android 14 & 15).
-     */
     private fun openActivity(intent: Intent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                intent,
+                this, 0, intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             startActivityAndCollapse(pendingIntent)
