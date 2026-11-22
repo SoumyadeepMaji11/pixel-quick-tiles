@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Permission to change ringer mode to Silent (Do Not Disturb access) -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <!-- Permission to modify system settings (VIBRATE_WHEN_RINGING, HAPTIC_FEEDBACK_ENABLED) -->
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Tactile vibration feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Optional permission for master accessibility switch via ADB -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.QuickTiles">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Quick Settings Tile 1: Ringer Mode Toggle (Sound -> Vibrate -> Silent) -->
+        <service
+            android:name=".RingerModeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_sound_normal"
+            android:label="@string/tile_ringer_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Quick Settings Tile 2: Global Vibration Toggle -->
+        <service
+            android:name=".VibrationTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_vibration_on"
+            android:label="@string/tile_vibration_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

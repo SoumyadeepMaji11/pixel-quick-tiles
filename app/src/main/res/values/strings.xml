@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">Pixel Quick Tiles</string>
+    <string name="tile_ringer_name">Ringer</string>
+    <string name="tile_vibration_name">Vibration</string>
+    <string name="title_app">Pixel Sound &amp; Vibration Tiles</string>
+    <string name="subtitle_app">Restores missing Sound, Vibrate, and Silent toggles to Google Pixel</string>
+
+    <string name="section_status">Live Pixel Status</string>
+    <string name="label_current_ringer">Ringer Mode:</string>
+    <string name="label_current_vibration">Vibration &amp; Haptics:</string>
+
+    <string name="section_permissions">Required Permissions</string>
+    <string name="dnd_perm_title">Do Not Disturb (Notification Policy)</string>
+    <string name="dnd_perm_desc">Pixel requires DND access to enter Silent mode without opening the volume slider.</string>
+    <string name="write_settings_title">Modify System Settings</string>
+    <string name="write_settings_desc">Required to toggle Pixel\'s master \"Use vibration &amp; haptics\" switch and call vibration.</string>
+
+    <string name="btn_grant">Grant Access</string>
+    <string name="status_granted">Granted</string>
+    <string name="status_not_granted">Action Required</string>
+
+    <string name="section_instructions">Adding to Pixel Quick Settings</string>
+    <string name="instruction_step_1">1. Swipe down twice from the top of your Pixel screen.</string>
+    <string name="instruction_step_2">2. Tap the Pencil (Edit) icon at the bottom-right corner.</string>
+    <string name="instruction_step_3">3. Scroll down through available tiles to find \"Ringer\" and \"Vibration\".</string>
+    <string name="instruction_step_4">4. Hold and drag them into the top active 4–8 quick tile pills.</string>
+
+    <string name="advanced_note_title">Pixel Power Users: Master Switch via ADB</string>
+    <string name="advanced_note_desc">To grant write access to secure system tables across reboots:\nadb shell pm grant com.example.quicktiles android.permission.WRITE_SECURE_SETTINGS</string>
+</resources>
