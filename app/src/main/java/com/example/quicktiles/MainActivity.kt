@@ -148,17 +148,26 @@ class MainActivity : AppCompatActivity() {
         // 1. Ringer status on Pixel
         when (audioManager.ringerMode) {
             AudioManager.RINGER_MODE_NORMAL -> {
-                tvRingerStatus.text = "Ring (Sound On)"
-                tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.primary))
-                ivRingerStatus.setImageResource(R.drawable.ic_sound_normal)
+                val isMuted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    audioManager.isStreamMute(AudioManager.STREAM_RING)
+                } else false
+                if (isMuted) {
+                    tvRingerStatus.text = "Silent"
+                    tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                    ivRingerStatus.setImageResource(R.drawable.ic_sound_silent)
+                } else {
+                    tvRingerStatus.text = "Normal"
+                    tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.primary))
+                    ivRingerStatus.setImageResource(R.drawable.ic_sound_normal)
+                }
             }
             AudioManager.RINGER_MODE_VIBRATE -> {
-                tvRingerStatus.text = "Vibrate Only"
+                tvRingerStatus.text = "Vibration"
                 tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.status_pending))
                 ivRingerStatus.setImageResource(R.drawable.ic_sound_vibrate)
             }
             AudioManager.RINGER_MODE_SILENT -> {
-                tvRingerStatus.text = "Silent (Muted)"
+                tvRingerStatus.text = "Silent"
                 tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
                 ivRingerStatus.setImageResource(R.drawable.ic_sound_silent)
             }

@@ -10,9 +10,9 @@ import android.util.Log
 
 /**
  * Quick Settings Tile tailored for Google Pixel devices.
- * Cycles strictly in order: Silent -> Vibration -> Normal -> Silent.
+ * Cycles strictly in order: Normal -> Vibration -> Silent -> Normal.
  *
- * Designed to execute cleanly even when the app is completely cleared from recent history.
+ * Persists and operates reliably even when the main app is closed or cleared from recent apps.
  */
 class RingerModeTileService : TileService() {
 
@@ -24,7 +24,6 @@ class RingerModeTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
-        // Fresh audio manager query whenever the shade is pulled down
         val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         updateTileUI(getCurrentMode(audio))
     }
@@ -34,12 +33,12 @@ class RingerModeTileService : TileService() {
 
         val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-        // Cycle strictly: Silent -> Vibration -> Normal -> Silent
+        // Cycle strictly: Normal -> Vibration -> Silent -> Normal
         val currentMode = getCurrentMode(audio)
         val nextMode = when (currentMode) {
-            MODE_SILENT -> MODE_VIBRATION
-            MODE_VIBRATION -> MODE_NORMAL
-            MODE_NORMAL -> MODE_SILENT
+            MODE_NORMAL -> MODE_VIBRATION
+            MODE_VIBRATION -> MODE_SILENT
+            MODE_SILENT -> MODE_NORMAL
             else -> MODE_NORMAL
         }
 
@@ -54,8 +53,8 @@ class RingerModeTileService : TileService() {
     }
 
     /**
-     * Determines current ringer mode.
-     * 0 = Silent (Muted), 1 = Vibration, 2 = Normal
+     * Accurately determines current ringer mode.
+     * MODE_NORMAL = 2, MODE_VIBRATION = 1, MODE_SILENT = 0
      */
     private fun getCurrentMode(audio: AudioManager): Int {
         return try {
@@ -63,8 +62,15 @@ class RingerModeTileService : TileService() {
                 AudioManager.RINGER_MODE_SILENT -> MODE_SILENT
                 AudioManager.RINGER_MODE_VIBRATE -> MODE_VIBRATION
                 AudioManager.RINGER_MODE_NORMAL -> {
-                    val ringVol = audio.getStreamVolume(AudioManager.STREAM_RING)
-                    if (ringVol == 0) MODE_SILENT else MODE_NORMAL
+                    val isMuted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        audio.isStreamMute(AudioManager.STREAM_RING)
+                    } else false
+
+                    if (isMuted && getSavedMode() == MODE_SILENT) {
+                        MODE_SILENT
+                    } else {
+                        MODE_NORMAL
+                    }
                 }
                 else -> MODE_NORMAL
             }
@@ -74,33 +80,48 @@ class RingerModeTileService : TileService() {
     }
 
     /**
-     * Applies the target ringer mode without requiring DND or interrupting notifications.
+     * Applies the target ringer mode without triggering DND or getting stuck.
      */
     private fun applyMode(audio: AudioManager, mode: Int) {
+        saveMode(mode)
         try {
             when (mode) {
+                MODE_NORMAL -> {
+                    // Unmute streams
+                    try {
+                        audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
+                        audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+                    } catch (_: Exception) {}
+
+                    audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
+
+                    // Ensure ring volume is audible
+                    try {
+                        val currentVol = audio.getStreamVolume(AudioManager.STREAM_RING)
+                        if (currentVol == 0) {
+                            val maxVol = audio.getStreamMaxVolume(AudioManager.STREAM_RING)
+                            audio.setStreamVolume(AudioManager.STREAM_RING, maxVol / 2, 0)
+                        }
+                    } catch (_: Exception) {}
+                }
+                MODE_VIBRATION -> {
+                    // Unmute streams so vibration takes over
+                    try {
+                        audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
+                        audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+                    } catch (_: Exception) {}
+
+                    audio.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                }
                 MODE_SILENT -> {
+                    // Set to Silent mode
                     try {
                         audio.ringerMode = AudioManager.RINGER_MODE_SILENT
                     } catch (_: Exception) {
-                        // Fallback: Mute the ring & notification streams directly
+                        // Fallback: Mute ring & notification streams directly
                         audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_MUTE, 0)
                         audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
                     }
-                }
-                MODE_VIBRATION -> {
-                    try {
-                        audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
-                        audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
-                    } catch (_: Exception) {}
-                    audio.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                }
-                MODE_NORMAL -> {
-                    try {
-                        audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
-                        audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
-                    } catch (_: Exception) {}
-                    audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
                 }
             }
         } catch (e: Exception) {
@@ -116,13 +137,13 @@ class RingerModeTileService : TileService() {
 
         try {
             when (mode) {
-                MODE_SILENT -> {
-                    tile.state = Tile.STATE_INACTIVE
+                MODE_NORMAL -> {
+                    tile.state = Tile.STATE_ACTIVE
                     tile.label = "Ringer"
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        tile.subtitle = "Silent"
+                        tile.subtitle = "Normal"
                     }
-                    tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_silent)
+                    tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_normal)
                 }
                 MODE_VIBRATION -> {
                     tile.state = Tile.STATE_ACTIVE
@@ -132,13 +153,13 @@ class RingerModeTileService : TileService() {
                     }
                     tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_vibrate)
                 }
-                MODE_NORMAL -> {
-                    tile.state = Tile.STATE_ACTIVE
+                MODE_SILENT -> {
+                    tile.state = Tile.STATE_INACTIVE
                     tile.label = "Ringer"
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        tile.subtitle = "Normal"
+                        tile.subtitle = "Silent"
                     }
-                    tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_normal)
+                    tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_silent)
                 }
             }
             tile.updateTile()
@@ -147,8 +168,21 @@ class RingerModeTileService : TileService() {
         }
     }
 
+    private fun getSavedMode(): Int {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_SAVED_MODE, MODE_NORMAL)
+    }
+
+    private fun saveMode(mode: Int) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_SAVED_MODE, mode).apply()
+    }
+
     companion object {
         private const val TAG = "RingerModeTileService"
+        private const val PREFS_NAME = "ringer_tile_prefs"
+        private const val KEY_SAVED_MODE = "saved_ringer_mode"
+
         const val MODE_SILENT = 0
         const val MODE_VIBRATION = 1
         const val MODE_NORMAL = 2
