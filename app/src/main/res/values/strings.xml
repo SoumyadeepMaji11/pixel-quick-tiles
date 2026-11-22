@@ -12,7 +12,9 @@
     <string name="ringer_mode_vibrate">Vibration</string>
 
     <string name="section_permissions">Required Permissions</string>
-    <string name="write_settings_title">Modify System Settings</string>
+    <string name="dnd_perm_title">Notification Policy Access (Ringer Mode)</string>
+    <string name="dnd_perm_desc">Required by Android to toggle between Ring and Vibrate. This does not activate Do Not Disturb.</string>
+    <string name="write_settings_title">Modify System Settings (Global Vibration)</string>
     <string name="write_settings_desc">Required to toggle Pixel\'s master \"Use vibration &amp; haptics\" switch and call vibration.</string>
 
     <string name="btn_grant">Grant Access</string>

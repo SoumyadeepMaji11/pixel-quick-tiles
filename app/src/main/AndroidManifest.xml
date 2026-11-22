@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permission to change ringer mode (Android requires Notification Policy access) -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <!-- Standard permission to adjust audio streams and ringer -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 

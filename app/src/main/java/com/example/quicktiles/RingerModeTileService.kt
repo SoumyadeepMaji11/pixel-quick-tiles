@@ -1,5 +1,7 @@
 package com.example.quicktiles
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -7,9 +9,11 @@ import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.media.AudioManager
 import android.os.Build
+import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 
 /**
@@ -61,9 +65,17 @@ class RingerModeTileService : TileService() {
         super.onClick()
 
         val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val currentMode = audio.ringerMode
+        val notifMgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // 2-way toggle: if currently Vibration -> Normal; otherwise -> Vibration
+        // Android requires Notification Policy Access to switch out of vibrate or change ringer mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !notifMgr.isNotificationPolicyAccessGranted) {
+            showToast("Please allow Notification Policy Access to toggle ringer")
+            promptDndPermission()
+            updateTileUI(audio.ringerMode)
+            return
+        }
+
+        val currentMode = audio.ringerMode
         val nextMode = if (currentMode == AudioManager.RINGER_MODE_VIBRATE) {
             AudioManager.RINGER_MODE_NORMAL
         } else {
@@ -71,10 +83,22 @@ class RingerModeTileService : TileService() {
         }
 
         try {
-            audio.ringerMode = nextMode
-
-            // When switching to Normal, ensure ring volume is audible if it was muted
             if (nextMode == AudioManager.RINGER_MODE_NORMAL) {
+                // Clear any lingering interruption filter if set
+                try {
+                    notifMgr.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+                } catch (_: Exception) {}
+
+                // Switch ringer to Normal
+                audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
+
+                // Ensure ring & notification streams are unmuted
+                try {
+                    audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
+                    audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+                } catch (_: Exception) {}
+
+                // Ensure ring volume is audible
                 try {
                     val currentVol = audio.getStreamVolume(AudioManager.STREAM_RING)
                     if (currentVol == 0) {
@@ -82,13 +106,16 @@ class RingerModeTileService : TileService() {
                         audio.setStreamVolume(AudioManager.STREAM_RING, (maxVol / 2).coerceAtLeast(1), 0)
                     }
                 } catch (_: Exception) {}
+            } else {
+                audio.ringerMode = AudioManager.RINGER_MODE_VIBRATE
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error applying ringer mode: $nextMode", e)
+            showToast("Could not change ringer mode")
         }
 
-        // Immediately update tile UI on screen
-        updateTileUI(nextMode)
+        // Update tile UI with confirmed hardware state
+        updateTileUI(audio.ringerMode)
 
         // Haptic feedback
         VibrationHelper.triggerPixelHaptic(this)
@@ -113,7 +140,7 @@ class RingerModeTileService : TileService() {
                         tile.contentDescription = "Ringer mode: Normal"
                     }
                 }
-                else -> { // RINGER_MODE_VIBRATE (or any other mode)
+                else -> { // RINGER_MODE_VIBRATE (or any non-normal mode)
                     tile.state = Tile.STATE_ACTIVE
                     tile.label = getString(R.string.tile_ringer_name)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -156,6 +183,36 @@ class RingerModeTileService : TileService() {
                 Log.e(TAG, "Error unregistering ringer receiver", e)
             }
             isReceiverRegistered = false
+        }
+    }
+
+    private fun showToast(message: String) {
+        try {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {}
+    }
+
+    private fun promptDndPermission() {
+        try {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            openActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error opening DND settings", e)
+        }
+    }
+
+    private fun openActivity(intent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            startActivityAndCollapse(pendingIntent)
+        } else {
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
         }
     }
 
