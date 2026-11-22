@@ -10,6 +10,7 @@
     <string name="label_current_vibration">Vibration &amp; Haptics:</string>
     <string name="ringer_mode_normal">Normal</string>
     <string name="ringer_mode_vibrate">Vibration</string>
+    <string name="tile_permission_needed">Setup Needed</string>
 
     <string name="section_permissions">Required Permissions</string>
     <string name="dnd_perm_title">Notification Policy Access (Ringer Mode)</string>

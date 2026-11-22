@@ -13,7 +13,6 @@ import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 
 /**
@@ -30,8 +29,7 @@ class RingerModeTileService : TileService() {
     private val ringerReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             try {
-                val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                updateTileUI(audio.ringerMode)
+                updateTileUI()
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating tile from receiver", e)
             }
@@ -40,15 +38,13 @@ class RingerModeTileService : TileService() {
 
     override fun onTileAdded() {
         super.onTileAdded()
-        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        updateTileUI(audio.ringerMode)
+        updateTileUI()
     }
 
     override fun onStartListening() {
         super.onStartListening()
         registerRingerReceiver()
-        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        updateTileUI(audio.ringerMode)
+        updateTileUI()
     }
 
     override fun onStopListening() {
@@ -64,14 +60,13 @@ class RingerModeTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
-        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val notifMgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-        // Android requires Notification Policy Access to switch out of vibrate or change ringer mode
+        // If permission is missing, guide the user to settings via unlockAndRun
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !notifMgr.isNotificationPolicyAccessGranted) {
-            showToast("Please allow Notification Policy Access to toggle ringer")
             promptDndPermission()
-            updateTileUI(audio.ringerMode)
+            updateTileUI()
             return
         }
 
@@ -83,22 +78,15 @@ class RingerModeTileService : TileService() {
         }
 
         try {
+            audio.ringerMode = nextMode
+
+            // When switching to Normal, ensure ring volume is audible
             if (nextMode == AudioManager.RINGER_MODE_NORMAL) {
-                // Clear any lingering interruption filter if set
-                try {
-                    notifMgr.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
-                } catch (_: Exception) {}
-
-                // Switch ringer to Normal
-                audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
-
-                // Ensure ring & notification streams are unmuted
                 try {
                     audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_UNMUTE, 0)
                     audio.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
                 } catch (_: Exception) {}
 
-                // Ensure ring volume is audible
                 try {
                     val currentVol = audio.getStreamVolume(AudioManager.STREAM_RING)
                     if (currentVol == 0) {
@@ -106,16 +94,13 @@ class RingerModeTileService : TileService() {
                         audio.setStreamVolume(AudioManager.STREAM_RING, (maxVol / 2).coerceAtLeast(1), 0)
                     }
                 } catch (_: Exception) {}
-            } else {
-                audio.ringerMode = AudioManager.RINGER_MODE_VIBRATE
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error applying ringer mode: $nextMode", e)
-            showToast("Could not change ringer mode")
         }
 
-        // Update tile UI with confirmed hardware state
-        updateTileUI(audio.ringerMode)
+        // Immediately update tile UI with confirmed hardware state
+        updateTileUI()
 
         // Haptic feedback
         VibrationHelper.triggerPixelHaptic(this)
@@ -124,11 +109,29 @@ class RingerModeTileService : TileService() {
     /**
      * Updates the Quick Settings Tile appearance.
      */
-    private fun updateTileUI(mode: Int) {
+    private fun updateTileUI() {
         val tile = qsTile ?: return
 
         try {
-            when (mode) {
+            val notifMgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+            // If permission is missing, show "Setup Needed" clearly
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !notifMgr.isNotificationPolicyAccessGranted) {
+                tile.state = Tile.STATE_INACTIVE
+                tile.label = getString(R.string.tile_ringer_name)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    tile.subtitle = getString(R.string.tile_permission_needed)
+                }
+                tile.icon = Icon.createWithResource(this, R.drawable.ic_sound_normal)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    tile.contentDescription = "Ringer mode: Setup Needed"
+                }
+                tile.updateTile()
+                return
+            }
+
+            when (audio.ringerMode) {
                 AudioManager.RINGER_MODE_NORMAL -> {
                     tile.state = Tile.STATE_ACTIVE
                     tile.label = getString(R.string.tile_ringer_name)
@@ -186,33 +189,31 @@ class RingerModeTileService : TileService() {
         }
     }
 
-    private fun showToast(message: String) {
-        try {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {}
-    }
-
     private fun promptDndPermission() {
         try {
-            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val launchSettings = Runnable {
+                val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val pendingIntent = PendingIntent.getActivity(
+                        this, 0, intent,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                    startActivityAndCollapse(pendingIntent)
+                } else {
+                    @Suppress("DEPRECATION")
+                    startActivityAndCollapse(intent)
+                }
             }
-            openActivity(intent)
+
+            if (isLocked) {
+                unlockAndRun(launchSettings)
+            } else {
+                launchSettings.run()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error opening DND settings", e)
-        }
-    }
-
-    private fun openActivity(intent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val pendingIntent = PendingIntent.getActivity(
-                this, 0, intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            startActivityAndCollapse(pendingIntent)
-        } else {
-            @Suppress("DEPRECATION")
-            startActivityAndCollapse(intent)
         }
     }
 
