@@ -190,8 +190,7 @@
                                 android:layout_height="wrap_content"
                                 android:paddingHorizontal="8dp"
                                 android:paddingVertical="4dp"
-                                android:background="@drawable/ic_check_circle"
-                                android:text="@string/status_granted"
+                                android:text="@string/status_not_granted"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>

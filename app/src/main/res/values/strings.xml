@@ -10,8 +10,8 @@
     <string name="label_current_vibration">Vibration &amp; Haptics:</string>
 
     <string name="section_permissions">Required Permissions</string>
-    <string name="dnd_perm_title">Do Not Disturb (Notification Policy)</string>
-    <string name="dnd_perm_desc">Pixel requires DND access to enter Silent mode without opening the volume slider.</string>
+    <string name="dnd_perm_title">Notification Policy Access (for Silent Mode)</string>
+    <string name="dnd_perm_desc">Required by Android to mute phone calls and notification sounds. This does not activate Do Not Disturb.</string>
     <string name="write_settings_title">Modify System Settings</string>
     <string name="write_settings_desc">Required to toggle Pixel\'s master \"Use vibration &amp; haptics\" switch and call vibration.</string>
 

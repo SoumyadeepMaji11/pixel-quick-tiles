@@ -2,8 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permission to change ringer mode to Silent (Do Not Disturb access) -->
+    <!-- Permission to change ringer mode to Silent (Notification Policy access) -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <!-- Standard permission to adjust audio streams and ringer -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Permission to modify system settings (VIBRATE_WHEN_RINGING, HAPTIC_FEEDBACK_ENABLED) -->
     <uses-permission
@@ -40,11 +43,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Quick Settings Tile 1: Ringer Mode Toggle (Sound -> Vibrate -> Silent) -->
+        <!-- Quick Settings Tile 1: Ringer Mode Toggle (Silent -> Vibration -> Normal) -->
         <service
             android:name=".RingerModeTileService"
             android:exported="true"
-            android:stopWithTask="false"
             android:icon="@drawable/ic_sound_normal"
             android:label="@string/tile_ringer_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
@@ -57,7 +59,6 @@
         <service
             android:name=".VibrationTileService"
             android:exported="true"
-            android:stopWithTask="false"
             android:icon="@drawable/ic_vibration_on"
             android:label="@string/tile_vibration_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
