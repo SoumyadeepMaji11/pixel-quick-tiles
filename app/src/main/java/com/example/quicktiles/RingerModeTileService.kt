@@ -100,7 +100,7 @@ class RingerModeTileService : TileService() {
                         val currentVol = audio.getStreamVolume(AudioManager.STREAM_RING)
                         if (currentVol == 0) {
                             val maxVol = audio.getStreamMaxVolume(AudioManager.STREAM_RING)
-                            audio.setStreamVolume(AudioManager.STREAM_RING, maxVol / 2, 0)
+                            audio.setStreamVolume(AudioManager.STREAM_RING, (maxVol / 2).coerceAtLeast(1), 0)
                         }
                     } catch (_: Exception) {}
                 }
