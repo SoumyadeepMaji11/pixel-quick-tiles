@@ -1,6 +1,5 @@
 package com.example.quicktiles
 
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -8,7 +7,6 @@ import android.content.IntentFilter
 import android.database.ContentObserver
 import android.media.AudioManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -32,17 +30,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvVibrationStatus: TextView
     private lateinit var ivVibrationStatus: ImageView
 
-    private lateinit var tvDndStatus: TextView
-    private lateinit var btnGrantDnd: Button
     private lateinit var tvWriteSettingsStatus: TextView
     private lateinit var btnGrantWriteSettings: Button
 
     private val audioManager by lazy {
         getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
-
-    private val notificationManager by lazy {
-        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     }
 
     // Dynamic receiver for Pixel ringer state changes
@@ -124,18 +116,11 @@ class MainActivity : AppCompatActivity() {
         tvVibrationStatus = findViewById(R.id.tvVibrationStatus)
         ivVibrationStatus = findViewById(R.id.ivVibrationStatus)
 
-        tvDndStatus = findViewById(R.id.tvDndStatus)
-        btnGrantDnd = findViewById(R.id.btnGrantDnd)
         tvWriteSettingsStatus = findViewById(R.id.tvWriteSettingsStatus)
         btnGrantWriteSettings = findViewById(R.id.btnGrantWriteSettings)
     }
 
     private fun setupListeners() {
-        btnGrantDnd.setOnClickListener {
-            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
-            startActivity(intent)
-        }
-
         btnGrantWriteSettings.setOnClickListener {
             val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                 data = Uri.parse("package:$packageName")
@@ -145,31 +130,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateLiveStatus() {
-        // 1. Ringer status on Pixel
+        // 1. Ringer status on Pixel (2-way: Normal <-> Vibration)
         when (audioManager.ringerMode) {
             AudioManager.RINGER_MODE_NORMAL -> {
-                val isMuted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    audioManager.isStreamMute(AudioManager.STREAM_RING)
-                } else false
-                if (isMuted) {
-                    tvRingerStatus.text = "Silent"
-                    tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                    ivRingerStatus.setImageResource(R.drawable.ic_sound_silent)
-                } else {
-                    tvRingerStatus.text = "Normal"
-                    tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.primary))
-                    ivRingerStatus.setImageResource(R.drawable.ic_sound_normal)
-                }
+                tvRingerStatus.text = getString(R.string.ringer_mode_normal)
+                tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.primary))
+                ivRingerStatus.setImageResource(R.drawable.ic_sound_normal)
             }
-            AudioManager.RINGER_MODE_VIBRATE -> {
-                tvRingerStatus.text = "Vibration"
+            else -> { // Vibration mode (or any other mode)
+                tvRingerStatus.text = getString(R.string.ringer_mode_vibrate)
                 tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.status_pending))
                 ivRingerStatus.setImageResource(R.drawable.ic_sound_vibrate)
-            }
-            AudioManager.RINGER_MODE_SILENT -> {
-                tvRingerStatus.text = "Silent"
-                tvRingerStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                ivRingerStatus.setImageResource(R.drawable.ic_sound_silent)
             }
         }
 
@@ -187,18 +158,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePermissionsStatus() {
-        // DND Permission
-        val hasDnd = notificationManager.isNotificationPolicyAccessGranted
-        if (hasDnd) {
-            tvDndStatus.text = getString(R.string.status_granted)
-            tvDndStatus.setTextColor(ContextCompat.getColor(this, R.color.status_granted))
-            btnGrantDnd.visibility = View.GONE
-        } else {
-            tvDndStatus.text = getString(R.string.status_not_granted)
-            tvDndStatus.setTextColor(ContextCompat.getColor(this, R.color.status_pending))
-            btnGrantDnd.visibility = View.VISIBLE
-        }
-
         // Modify System Settings Permission
         val hasWriteSettings = VibrationHelper.canModifySystemSettings(this)
         if (hasWriteSettings) {

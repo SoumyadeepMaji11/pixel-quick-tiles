@@ -3,15 +3,15 @@
     <string name="tile_ringer_name">Ringer</string>
     <string name="tile_vibration_name">Vibration</string>
     <string name="title_app">Pixel Sound &amp; Vibration Tiles</string>
-    <string name="subtitle_app">Restores missing Sound, Vibrate, and Silent toggles to Google Pixel</string>
+    <string name="subtitle_app">Restores missing Sound and Vibrate toggles to Google Pixel</string>
 
     <string name="section_status">Live Pixel Status</string>
     <string name="label_current_ringer">Ringer Mode:</string>
     <string name="label_current_vibration">Vibration &amp; Haptics:</string>
+    <string name="ringer_mode_normal">Normal</string>
+    <string name="ringer_mode_vibrate">Vibration</string>
 
     <string name="section_permissions">Required Permissions</string>
-    <string name="dnd_perm_title">Notification Policy Access (for Silent Mode)</string>
-    <string name="dnd_perm_desc">Required by Android to mute phone calls and notification sounds. This does not activate Do Not Disturb.</string>
     <string name="write_settings_title">Modify System Settings</string>
     <string name="write_settings_desc">Required to toggle Pixel\'s master \"Use vibration &amp; haptics\" switch and call vibration.</string>
 
